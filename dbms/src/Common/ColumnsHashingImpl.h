@@ -168,7 +168,12 @@ protected:
         }
 
         if constexpr (has_mapped)
-            return FindResult(found ? &it->second : nullptr, found);
+        {
+            if (found)
+                return FindResult(&it->second, found);
+            else
+                return FindResult(nullptr, found);
+        }
         else
             return FindResult(found);
     }
