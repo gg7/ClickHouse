@@ -193,10 +193,9 @@ template <typename Value, typename Mapped> struct KeyGetterForTypeImpl<Join::Typ
 template <Join::Type type, typename Data>
 struct KeyGetterForType
 {
-    using Data_t = std::remove_reference_t<Data>;
-    using Value = typename Data_t::value_type;
-    using Mapped_t = typename Data_t::mapped_type;
-    using Mapped = std::conditional_t<std::is_const_v<Data_t>, const Mapped_t, Mapped_t>;
+    using Value = typename Data::value_type;
+    using Mapped_t = typename Data::mapped_type;
+    using Mapped = std::conditional_t<std::is_const_v<Data>, const Mapped_t, Mapped_t>;
     using Type = typename KeyGetterForTypeImpl<type, Value, Mapped>::Type;
 };
 
@@ -429,7 +428,7 @@ namespace
 
         #define M(TYPE) \
             case Join::Type::TYPE: \
-                insertFromBlockImplType<STRICTNESS, typename KeyGetterForType<Join::Type::TYPE, decltype(*maps.TYPE)>::Type>(\
+                insertFromBlockImplType<STRICTNESS, typename KeyGetterForType<Join::Type::TYPE, std::remove_reference_t<decltype(*maps.TYPE)>>::Type>(\
                     *maps.TYPE, rows, key_columns, key_sizes, stored_block, null_map, pool); \
                     break;
             APPLY_FOR_JOIN_VARIANTS(M)
@@ -775,7 +774,7 @@ void Join::joinBlockImpl(
     {
     #define M(TYPE) \
         case Join::Type::TYPE: \
-            joinBlockImplType<KIND, STRICTNESS, typename KeyGetterForType<Join::Type::TYPE, const decltype(*maps.TYPE)>::Type>(\
+            joinBlockImplType<KIND, STRICTNESS, typename KeyGetterForType<Join::Type::TYPE, const std::remove_reference_t<decltype(*maps.TYPE)>>::Type>(\
                 *maps.TYPE, rows, key_columns, key_sizes, added_columns, null_map, \
                 filter, current_offset, offsets_to_replicate, right_indexes); \
             break;
