@@ -775,7 +775,7 @@ void Join::joinBlockImpl(
     {
     #define M(TYPE) \
         case Join::Type::TYPE: \
-            joinBlockImplType<KIND, STRICTNESS, typename KeyGetterForType<Join::Type::TYPE, decltype(*maps.TYPE)>::Type>(\
+            joinBlockImplType<KIND, STRICTNESS, typename KeyGetterForType<Join::Type::TYPE, const decltype(*maps.TYPE)>::Type>(\
                 *maps.TYPE, rows, key_columns, key_sizes, added_columns, null_map, \
                 filter, current_offset, offsets_to_replicate, right_indexes); \
             break;
