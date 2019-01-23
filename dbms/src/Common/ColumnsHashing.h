@@ -107,7 +107,7 @@ struct HashMethodString : public columns_hashing_impl::HashMethodBase<Value, Map
 
     static HashMethodContextPtr createContext(const HashMethodContext::Settings &) { return nullptr; }
 
-    StringRef getKey(size_t row) const { return StringRef(chars + offsets[row - 1], offsets[row] - offsets[row - 1] - 1); }
+    StringRef getKey(ssize_t row) const { return StringRef(chars + offsets[row - 1], offsets[row] - offsets[row - 1] - 1); }
 
     template <typename Data>
     ALWAYS_INLINE typename Base::EmplaceResult emplaceKey(Data & data, size_t row, Arena & pool)
