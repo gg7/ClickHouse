@@ -193,8 +193,8 @@ template <typename Value, typename Mapped> struct KeyGetterForTypeImpl<Join::Typ
 template <Join::Type type, typename Data>
 struct KeyGetterForType
 {
-    using Value = typename Data::value_type;
-    using Mapped = typename Data::mapped_type;
+    using Value = typename std::remove_reference_t<Data>::value_type;
+    using Mapped = typename std::remove_reference_t<Data>::mapped_type;
     using Type = typename KeyGetterForTypeImpl<type, Value, Mapped>::Type;
 };
 
@@ -352,7 +352,7 @@ namespace
     {
         static void insert(Map & map, KeyGetter & key_getter, Block * stored_block, size_t i, Arena & pool)
         {
-            auto emplace_result = key_getter.emplace(map, i, pool);
+            auto emplace_result = key_getter.emplaceKey(map, i, pool);
 
             if (emplace_result.isInserted())
                 new (&emplace_result.getMapped()) typename Map::mapped_type(stored_block, i);
@@ -364,7 +364,7 @@ namespace
     {
         static void insert(Map & map, KeyGetter & key_getter, Block * stored_block, size_t i, Arena & pool)
         {
-            auto emplace_result = key_getter.emplace(map, i, pool);
+            auto emplace_result = key_getter.emplaceKey(map, i, pool);
 
             if (emplace_result.isInserted())
                 new (&emplace_result.getMapped()) typename Map::mapped_type(stored_block, i);
@@ -389,17 +389,16 @@ namespace
     template <ASTTableJoin::Strictness STRICTNESS, typename KeyGetter, typename Map, bool has_null_map>
     void NO_INLINE insertFromBlockImplTypeCase(
         Map & map, size_t rows, const ColumnRawPtrs & key_columns,
-        size_t keys_size, const Sizes & key_sizes, Block * stored_block, ConstNullMapPtr null_map, Arena & pool)
+        const Sizes & key_sizes, Block * stored_block, ConstNullMapPtr null_map, Arena & pool)
     {
-        KeyGetter key_getter(key_columns);
+        KeyGetter key_getter(key_columns, key_sizes, nullptr);
 
         for (size_t i = 0; i < rows; ++i)
         {
             if (has_null_map && (*null_map)[i])
                 continue;
 
-            auto key = key_getter.getKey(key_columns, keys_size, i, key_sizes);
-            Inserter<STRICTNESS, Map, KeyGetter>::insert(map, key, stored_block, i, pool);
+            Inserter<STRICTNESS, Map, KeyGetter>::insert(map, key_getter, stored_block, i, pool);
         }
     }
 
@@ -407,19 +406,19 @@ namespace
     template <ASTTableJoin::Strictness STRICTNESS, typename KeyGetter, typename Map>
     void insertFromBlockImplType(
         Map & map, size_t rows, const ColumnRawPtrs & key_columns,
-        size_t keys_size, const Sizes & key_sizes, Block * stored_block, ConstNullMapPtr null_map, Arena & pool)
+        const Sizes & key_sizes, Block * stored_block, ConstNullMapPtr null_map, Arena & pool)
     {
         if (null_map)
-            insertFromBlockImplTypeCase<STRICTNESS, KeyGetter, Map, true>(map, rows, key_columns, keys_size, key_sizes, stored_block, null_map, pool);
+            insertFromBlockImplTypeCase<STRICTNESS, KeyGetter, Map, true>(map, rows, key_columns, key_sizes, stored_block, null_map, pool);
         else
-            insertFromBlockImplTypeCase<STRICTNESS, KeyGetter, Map, false>(map, rows, key_columns, keys_size, key_sizes, stored_block, null_map, pool);
+            insertFromBlockImplTypeCase<STRICTNESS, KeyGetter, Map, false>(map, rows, key_columns, key_sizes, stored_block, null_map, pool);
     }
 
 
     template <ASTTableJoin::Strictness STRICTNESS, typename Maps>
     void insertFromBlockImpl(
         Join::Type type, Maps & maps, size_t rows, const ColumnRawPtrs & key_columns,
-        size_t keys_size, const Sizes & key_sizes, Block * stored_block, ConstNullMapPtr null_map, Arena & pool)
+        const Sizes & key_sizes, Block * stored_block, ConstNullMapPtr null_map, Arena & pool)
     {
         switch (type)
         {
@@ -429,7 +428,7 @@ namespace
         #define M(TYPE) \
             case Join::Type::TYPE: \
                 insertFromBlockImplType<STRICTNESS, typename KeyGetterForType<Join::Type::TYPE, decltype(*maps.TYPE)>::Type>(\
-                    *maps.TYPE, rows, key_columns, keys_size, key_sizes, stored_block, null_map, pool); \
+                    *maps.TYPE, rows, key_columns, key_sizes, stored_block, null_map, pool); \
                     break;
             APPLY_FOR_JOIN_VARIANTS(M)
         #undef M
@@ -512,16 +511,16 @@ bool Join::insertFromBlock(const Block & block)
         if (!getFullness(kind))
         {
             if (strictness == ASTTableJoin::Strictness::Any)
-                insertFromBlockImpl<ASTTableJoin::Strictness::Any>(type, maps_any, rows, key_columns, keys_size, key_sizes, stored_block, null_map, pool);
+                insertFromBlockImpl<ASTTableJoin::Strictness::Any>(type, maps_any, rows, key_columns, key_sizes, stored_block, null_map, pool);
             else
-                insertFromBlockImpl<ASTTableJoin::Strictness::All>(type, maps_all, rows, key_columns, keys_size, key_sizes, stored_block, null_map, pool);
+                insertFromBlockImpl<ASTTableJoin::Strictness::All>(type, maps_all, rows, key_columns, key_sizes, stored_block, null_map, pool);
         }
         else
         {
             if (strictness == ASTTableJoin::Strictness::Any)
-                insertFromBlockImpl<ASTTableJoin::Strictness::Any>(type, maps_any_full, rows, key_columns, keys_size, key_sizes, stored_block, null_map, pool);
+                insertFromBlockImpl<ASTTableJoin::Strictness::Any>(type, maps_any_full, rows, key_columns, key_sizes, stored_block, null_map, pool);
             else
-                insertFromBlockImpl<ASTTableJoin::Strictness::All>(type, maps_all_full, rows, key_columns, keys_size, key_sizes, stored_block, null_map, pool);
+                insertFromBlockImpl<ASTTableJoin::Strictness::All>(type, maps_all_full, rows, key_columns, key_sizes, stored_block, null_map, pool);
         }
     }
 
