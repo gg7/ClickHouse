@@ -193,8 +193,10 @@ template <typename Value, typename Mapped> struct KeyGetterForTypeImpl<Join::Typ
 template <Join::Type type, typename Data>
 struct KeyGetterForType
 {
-    using Value = typename std::remove_reference_t<Data>::value_type;
-    using Mapped = typename std::remove_reference_t<Data>::mapped_type;
+    using Data_t = std::remove_reference_t<Data>;
+    using Value = typename Data_t::value_type;
+    using Mapped_t = typename Data_t::mapped_type;
+    using Mapped = std::conditional_t<std::is_const_v<Data_t>, const Mapped_t, Mapped_t>;
     using Type = typename KeyGetterForTypeImpl<type, Value, Mapped>::Type;
 };
 
