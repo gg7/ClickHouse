@@ -396,10 +396,13 @@ struct HashMethodSingleLowCardinalityColumn : public SingleColumnMethod
         if (is_nullable && row == 0)
         {
             visit_cache[row] = VisitValue::Found;
+            bool has_null_key = data.hasNullKeyData();
+            data.hasNullKeyData() = true;
+
             if constexpr (has_mapped)
-                return EmplaceResult(data.getNullKeyData(), mapped_cache[0], !data.hasNullKeyData());
+                return EmplaceResult(data.getNullKeyData(), mapped_cache[0], !has_null_key);
             else
-                return EmplaceResult(!data.hasNullKeyData());
+                return EmplaceResult(!has_null_key);
         }
 
         if (visit_cache[row] == VisitValue::Found)
